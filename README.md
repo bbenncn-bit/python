@@ -1,37 +1,21 @@
-# 数据同步工具
+# Excel数据导入MySQL工具
 
-自动从API获取废钢和报废车数据，并同步到MySQL数据库。
-
-## ⚠️ 安全提示
-
-**重要：** 本仓库包含敏感信息（API密钥、数据库密码等）。上传到GitHub前，请确保：
-
-1. 使用环境变量或配置文件管理敏感信息
-2. 不要将包含真实密码的代码提交到公开仓库
-3. 如果已提交，请立即更换所有密钥和密码
+这个工具用于将Excel文件中的数据结构和数据批量导入到MySQL数据库中。
 
 ## 功能特点
 
-- 🔄 自动同步废钢和报废车数据
-- 📊 智能数据增量更新（只同步缺失的数据）
-- 🔐 RSA数字签名认证
-- 🗄️ 自动创建和更新数据库表结构
-- 📝 详细的日志输出
+- 自动读取Excel文件中的"数据结构"sheet，创建对应的MySQL表结构
+- 自动读取Excel文件中的"具体数值"sheet，将数据导入到MySQL表中
+- 支持批量处理多个Excel文件
+- 自动映射Excel数据类型到MySQL数据类型
+- 支持中文注释和字段名
 
-## 项目结构
+## 文件说明
 
-```
-python/
-├── getdata.py              # 主数据同步脚本
-├── rsg.py                  # 总部数据同步工具
-├── dataIn.py              # Excel数据导入工具（单文件）
-├── dataIn_batch.py        # Excel数据导入工具（批量）
-├── test_connection.py      # 数据库连接测试
-├── verify_data.py         # 数据验证工具
-├── requirements.txt       # Python依赖包
-├── requirements_stable.txt # 稳定版本依赖
-└── data/                  # Excel数据文件目录
-```
+- `dataIn.py` - 处理单个Excel文件（energyAnalysisStrategy.xlsx）
+- `dataIn_batch.py` - 批量处理data文件夹中的所有Excel文件
+- `requirements.txt` - Python依赖包列表
+- `run.bat` - Windows批处理脚本，用于安装依赖并运行程序
 
 ## 安装依赖
 
@@ -41,7 +25,7 @@ python/
 install_stable.bat
 ```
 
-或手动安装：
+或者手动安装：
 
 ```bash
 pip install -r requirements_stable.txt
@@ -53,7 +37,7 @@ pip install -r requirements_stable.txt
 pip install -r requirements.txt
 ```
 
-### 如果遇到依赖冲突
+### 如果遇到numpy/pandas版本冲突错误
 
 运行修复脚本：
 
@@ -61,102 +45,132 @@ pip install -r requirements.txt
 fix_dependencies.bat
 ```
 
-## 使用方法
+## 程序优化说明
 
-### 数据同步（自动）
+### 最新修复内容
 
-```bash
-python getdata.py
-```
+1. **智能列名识别**：程序现在能自动识别Excel中的列名（字段、类型、中文含义等）
+2. **正确的数据类型映射**：
+   - "整数" → INT
+   - "字符串" → VARCHAR(255)
+   - "对象" → JSON
+   - "数值" → DECIMAL(10,2)
+3. **修复数据库连接**：解决了密码中特殊字符导致的连接问题
+4. **增强数据导入**：提供多种数据导入方式，确保数据能成功导入
+5. **详细调试信息**：显示更多处理过程信息，便于排查问题
 
-程序会自动：
-1. 获取API token
-2. 检查数据库中的最新数据日期
-3. 从最新日期开始同步到当前日期
-4. 自动创建和更新表结构
+### 测试程序功能
 
-### Excel数据导入
-
-#### 单文件导入
-
-```bash
-python dataIn.py
-```
-
-#### 批量导入
-
-```bash
-python dataIn_batch.py
-```
-
-### 测试数据库连接
+运行测试脚本验证环境：
 
 ```bash
 python test_connection.py
 ```
 
-## 配置说明
+## 常见问题解决
 
-### API配置
+### 错误：numpy.dtype size changed
 
-在 `getdata.py` 中配置：
+这是numpy和pandas版本不兼容导致的，解决方法：
 
-```python
-APP_ID = "your_app_id"
-ACCESS_KEY = "your_access_key"
-PRIVATE_KEY = """your_private_key"""
+1. 卸载现有包：
+```bash
+pip uninstall pandas numpy sqlalchemy pymysql openpyxl -y
 ```
 
-### 数据库配置
-
-在脚本中配置数据库连接信息：
-
-```python
-conn = pymysql.connect(
-    host='your_host',
-    port=3306,
-    user='your_user',
-    password='your_password',
-    database='your_database',
-    charset='utf8mb4'
-)
+2. 安装稳定版本：
+```bash
+pip install -r requirements_stable.txt
 ```
 
-## 数据表
+### 错误：Can't connect to MySQL server
 
-- `receiptfg` - 废钢数据表
-- `receiptfc` - 报废车数据表
+1. 检查网络连接
+2. 确认数据库服务器地址和端口
+3. 验证用户名和密码
+4. 运行测试脚本：`python test_connection.py`
+
+## 使用方法
+
+### 方法1：处理单个文件
+
+```bash
+python dataIn.py
+```
+
+这将处理 `data/energyAnalysisStrategy.xlsx` 文件，创建 `energyAnalysisStrategy` 表。
+
+### 方法2：批量处理所有文件
+
+```bash
+python dataIn_batch.py
+```
+
+这将处理 `data/` 文件夹中的所有 `.xlsx` 文件。
+
+## Excel文件格式要求
+
+每个Excel文件需要包含两个sheet：
+
+1. **数据结构** sheet - 定义表结构
+   - 第一列：字段名
+   - 第二列：数据类型
+   - 第三列：字段注释（可选）
+
+2. **具体数值** sheet - 包含实际数据
+   - 列名应与"数据结构"sheet中的字段名对应
+
+## 支持的数据类型
+
+程序会自动将以下Excel数据类型映射为MySQL数据类型：
+
+- varchar → VARCHAR(255)
+- text → TEXT
+- int/integer → INT
+- bigint → BIGINT
+- float → FLOAT
+- double → DOUBLE
+- decimal → DECIMAL(10,2)
+- date → DATE
+- datetime → DATETIME
+- timestamp → TIMESTAMP
+- boolean/bool → BOOLEAN
+
+## 数据库配置
+
+程序默认连接到以下MySQL数据库：
+
+- 服务器：124.223.182.79
+- 端口：3306
+- 用户名：root
+- 密码：Monica#!wapers0311
+- 数据库：pls
+
+如需修改数据库配置，请编辑程序中的 `DB_CONFIG` 字典。
 
 ## 注意事项
 
-1. ⚠️ **安全警告**：代码中包含敏感信息，请勿直接提交到公开仓库
-2. 确保MySQL数据库服务正在运行
-3. 确保网络可以访问API和数据库服务器
-4. 程序会自动处理表结构创建和字段更新
-5. 支持增量同步，不会重复插入已有数据
+1. 确保MySQL数据库服务正在运行
+2. 确保网络可以访问远程MySQL服务器
+3. 确保有足够的权限创建表和插入数据
+4. 如果表已存在，程序会追加数据而不是覆盖
+5. 程序会自动处理中文字符编码
 
 ## 错误处理
 
 程序包含完整的错误处理机制：
 
-- API请求失败时会显示错误信息
 - 数据库连接失败时会显示错误信息
-- 数据插入失败时会跳过该记录并继续
-- 所有错误都会记录到控制台输出
+- Excel文件读取失败时会跳过该文件
+- 表创建失败时会显示具体错误
+- 数据导入失败时会显示错误信息
 
-## 日志输出
+## 输出信息
 
-程序运行时会显示：
+程序运行时会显示详细的处理信息：
 
-- 同步开始和结束时间
-- 数据获取进度
-- 数据插入统计
-- 错误和警告信息
-
-## 许可证
-
-本项目仅供内部使用。
-
-## 贡献
-
-如有问题或建议，请提交Issue或Pull Request。
+- 数据库连接状态
+- Excel文件读取状态
+- 表创建SQL语句
+- 数据导入进度
+- 处理结果统计
